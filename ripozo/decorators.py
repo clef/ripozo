@@ -12,6 +12,8 @@ import warnings
 
 import six
 
+from ripozo.exceptions import RestException
+
 
 _logger = logging.getLogger(__name__)
 
@@ -190,8 +192,9 @@ class apimethod(object):
         @wraps(func)
         def wrapped(cls, request, *args, **kwargs):
             """
-            Runs the preo/postprocessors
+            Runs the pre/postprocessors and any authentication.
             """
+            assert_identity(cls, request)
             for proc in cls.preprocessors:
                 proc(cls, func.__name__, request, *args, **kwargs)
             resource = func(cls, request, *args, **kwargs)
@@ -199,6 +202,22 @@ class apimethod(object):
                 proc(cls, func.__name__, request, resource, *args, **kwargs)
             return resource
         return wrapped
+
+
+def assert_identity(cls, request):
+    identity_providers = getattr(cls, 'identity_providers', [])
+    authentication_required = getattr(cls, 'authentication_required', True)
+
+    authenticated_parties = []
+    for identity_provider in identity_providers:
+        authenticated_party = identity_provider(request)
+        if authenticated_party:
+            authenticated_parties.append(authenticated_party)
+    if authentication_required and not authenticated_parties:
+        raise RestException(
+            "Authentication is required for this request, but you have not provided valid credentials.",
+            status_code=403
+        )
 
 
 class translate(object):
