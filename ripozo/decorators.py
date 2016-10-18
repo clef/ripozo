@@ -206,14 +206,14 @@ class apimethod(object):
 
 def assert_identity(cls, request):
     identity_providers = getattr(cls, 'identity_providers', [])
-    authentication_required = getattr(cls, 'authentication_required', True)
+    identity_required = getattr(cls, 'identity_required', True)
 
-    authenticated_parties = []
+    identities = []
     for identity_provider in identity_providers:
-        authenticated_party = identity_provider(request)
-        if authenticated_party:
-            authenticated_parties.append(authenticated_party)
-    if authentication_required and not authenticated_parties:
+        identity = identity_provider(request)
+        if identity:
+            identities.append(identity)
+    if identity_required and not identities:
         raise RestException(
             "Authentication is required for this request, but you have not provided valid credentials.",
             status_code=403
