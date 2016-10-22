@@ -208,12 +208,12 @@ def assert_identity(cls, request):
     identity_providers = getattr(cls, 'identity_providers', [])
     identity_required = getattr(cls, 'identity_required', True)
 
-    identities = []
+    identity = None
     for identity_provider in identity_providers:
         identity = identity_provider(request)
         if identity:
-            identities.append(identity)
-    if identity_required and not identities:
+            break
+    if identity_required and not identity:
         raise RestException(
             "Authentication is required for this request, but you have not provided valid credentials.",
             status_code=403
