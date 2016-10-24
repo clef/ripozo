@@ -194,7 +194,7 @@ class apimethod(object):
             """
             Runs the pre/postprocessors and any authentication.
             """
-            assert_identity(cls, request)
+            run_identity_providers(cls, request)
             for proc in cls.preprocessors:
                 proc(cls, func.__name__, request, *args, **kwargs)
             resource = func(cls, request, *args, **kwargs)
@@ -204,20 +204,15 @@ class apimethod(object):
         return wrapped
 
 
-def assert_identity(cls, request):
+def run_identity_providers(cls, request):
     identity_providers = getattr(cls, 'identity_providers', [])
-    identity_required = getattr(cls, 'identity_required', True)
 
     identity = None
     for identity_provider in identity_providers:
         identity = identity_provider(request)
         if identity:
             break
-    if identity_required and not identity:
-        raise RestException(
-            "Authentication is required for this request, but you have not provided valid credentials.",
-            status_code=403
-        )
+    return identity
 
 
 class translate(object):
