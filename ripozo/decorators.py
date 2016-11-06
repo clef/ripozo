@@ -14,7 +14,6 @@ import six
 
 from ripozo.exceptions import RestException
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -104,6 +103,7 @@ class _apiclassmethod(object):
             if len(args) == 0 or not isinstance(args[0], type):
                 return self.func(klass, *args)
             return self.func(*args)
+
         return newfunc
 
     def __call__(self, cls, *args, **kwargs):
@@ -125,7 +125,12 @@ class apimethod(object):
     instance (or a subclass of it).
     """
 
-    def __init__(self, route='', endpoint=None, methods=None, no_pks=False, **options):
+    def __init__(self,
+                 route='',
+                 endpoint=None,
+                 methods=None,
+                 no_pks=False,
+                 **options):
         """
         Initialize the decorator.  These are the options for the endpoint
         that you are constructing.  It determines what url's will be
@@ -155,7 +160,8 @@ class apimethod(object):
             dependent on the individual dispatcher and web framework that
             you are using.
         """
-        _logger.info('Initializing apimethod route: %s with options %s', route, options)
+        _logger.info('Initializing apimethod route: %s with options %s', route,
+                     options)
         self.route = route
         if not methods:
             methods = ['GET']
@@ -194,24 +200,30 @@ class apimethod(object):
             """
             Runs the pre/postprocessors and any authentication.
             """
-            run_identity_providers(cls, request)
+            assert_identity(cls, request)
             for proc in cls.preprocessors:
                 proc(cls, func.__name__, request, *args, **kwargs)
             resource = func(cls, request, *args, **kwargs)
             for proc in cls.postprocessors:
                 proc(cls, func.__name__, request, resource, *args, **kwargs)
             return resource
+
         return wrapped
 
 
-def run_identity_providers(cls, request):
+def assert_identity(cls, request):
     identity_providers = getattr(cls, 'identity_providers', [])
+    allow_anonymous_identity = getattr(cls, 'allow_anonymous_identity', False)
 
     identity = None
     for identity_provider in identity_providers:
         identity = identity_provider(request)
         if identity:
             break
+    if not identity and not allow_anonymous_identity:
+        raise RestException(
+            "Authentication is required for this request, but you have not provided valid credentials.",
+            status_code=403)
     return identity
 
 
@@ -252,8 +264,11 @@ class translate(object):
         TranslationException: Not a valid integer type: not an integer
     """
 
-    def __init__(self, fields=None, skip_required=False,
-                 validate=False, manager_field_validators=False):
+    def __init__(self,
+                 fields=None,
+                 skip_required=False,
+                 validate=False,
+                 manager_field_validators=False):
         """
         Initializes the decorator with the necessary fields.
         the fields should be instances of FieldBase and should
@@ -299,6 +314,7 @@ class translate(object):
         :return: The wrapped function
         :rtype: function
         """
+
         @_apiclassmethod
         @wraps(func)
         def action(cls, request, *args, **kwargs):
@@ -307,8 +323,11 @@ class translate(object):
             """
             # TODO This is so terrible.  I really need to fix this.
             from ripozo.resources.fields.base import translate_fields
-            translate_fields(request, self.fields(cls.manager),
-                             skip_required=self.skip_required, validate=self.validate)
+            translate_fields(
+                request,
+                self.fields(cls.manager),
+                skip_required=self.skip_required,
+                validate=self.validate)
             return func(cls, request, *args, **kwargs)
 
         action.__manager_field_validators__ = self.manager_field_validators
@@ -335,8 +354,11 @@ class manager_translate(object):
     to return.
     """
 
-    def __init__(self, fields=None, skip_required=False,
-                 validate=False, fields_attr='fields'):
+    def __init__(self,
+                 fields=None,
+                 skip_required=False,
+                 validate=False,
+                 fields_attr='fields'):
         """A special case translation that inspects the manager
         to get the relevant fields.  This is purely for ease of use
         and may not be maintained
@@ -370,6 +392,7 @@ class manager_translate(object):
         :return: The wrapped function
         :rtype: function
         """
+
         @_apiclassmethod
         @wraps(func)
         def action(cls, request, *args, **kwargs):
@@ -378,8 +401,11 @@ class manager_translate(object):
             """
             # TODO This is so terrible.  I really need to fix this.
             from ripozo.resources.fields.base import translate_fields
-            translate_fields(request, self.fields(cls.manager),
-                             skip_required=self.skip_required, validate=self.validate)
+            translate_fields(
+                request,
+                self.fields(cls.manager),
+                skip_required=self.skip_required,
+                validate=self.validate)
             return func(cls, request, *args, **kwargs)
 
         action.__manager_field_validators__ = True
